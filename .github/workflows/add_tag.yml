@@ -8,13 +8,38 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
+      - uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Release
-        uses: justincy/github-action-npm-release@v2.0.2
-        id: release
-      - name: Print release output
-        if: ${{ steps.release.outputs.released == 'true' }}
-        run: echo Release ID ${{ steps.release.outputs.release_id }}
+      - name: 'Get Previous tag'
+        id: previoustag
+        uses: "WyriHaximus/github-action-get-previous-tag@v1"
+      - name: "Get package.json version"
+        id: set_var
+        run: |
+          content=`cat package.json`
+          # the following lines are only required for multi line json
+          content="${content//'%'/'%25'}"
+          content="${content//$'\n'/'%0A'}"
+          content="${content//$'\r'/'%0D'}"
+          # end of optional handling for multi line json
+          echo "::set-output name=packageJson::$content"
+      - name: "Show version"
+        run: |
+          echo "${{fromJson(steps.set_var.outputs.packageJson).version}}"
+          echo ${{ steps.previoustag.outputs.tag }}
+      - name: "Create tag"
+        uses: rickstaa/action-create-tag@v1
+        id: "tag_create"
+        with:
+          tag: ${{fromJson(steps.set_var.outputs.packageJson).version}}
+          tag_exists_error: false
+          message: "Latest release"
+
+      # Print result using the env variable.
+      -  run: |
+          echo "Tag already present: ${{ env.TAG_EXISTS }}"
+
+      # Print result using the action output.
+      - run: |
+          echo "Tag already present: ${{ steps.tag_create.outputs.tag_exists }}"
